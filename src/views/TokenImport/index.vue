@@ -26,11 +26,14 @@
         <div class="card-header">
           <!-- 导入方式选择 -->
           <n-radio-group v-model:value="importMethod" class="import-method-tabs" size="small">
-            <n-radio-button value="manual">
+            <!-- <n-radio-button value="manual">
               手动输入
             </n-radio-button>
             <n-radio-button value="url">
               URL获取
+            </n-radio-button> -->
+            <n-radio-button value="wxQrcode">
+              微信扫码获取
             </n-radio-button>
             <n-radio-button value="bin">
               BIN获取
@@ -42,6 +45,8 @@
             v-if="importMethod === 'manual'" />
           <url-token-form @cancel="() => showImportForm = false" @ok="() => showImportForm = false"
             v-if="importMethod === 'url'" />
+          <wx-qrcode-form @cancel="() => showImportForm = false" @ok="() => showImportForm = false"
+            v-if="importMethod === 'wxQrcode'" />
           <bin-token-form @cancel="() => showImportForm = false" @ok="() => showImportForm = false"
             v-if="importMethod === 'bin'" />
         </div>
@@ -166,7 +171,7 @@
               </div>
             </template>
             <template #actions>
-              <n-button type="primary" size="large" block :loading="connectingTokens.has(token.id)"
+              <n-button v-if="getTokenStyle(token.id) === 'success'" type="primary" size="large" block :loading="connectingTokens.has(token.id)"
                 @click="startTaskManagement(token)">
                 <template #icon>
                   <n-icon>
@@ -174,6 +179,10 @@
                   </n-icon>
                 </template>
                 开始任务管理
+              </n-button>
+              <n-button v-else type="primary" size="large" block :loading="connectingTokens.has(token.id)"
+                @click="startTaskManagement(token)">
+                开始链接
               </n-button>
             </template>
           </a-card>
@@ -235,9 +244,13 @@
       </div>
 
       <!-- 空状态 -->
-      <a-empty v-if="!tokenStore.hasTokens && !showImportForm">
+      <a-empty v-if="!tokenStore.hasTokens && !showImportForm" class="empty-state">
         <template #image>
-          <i class="mdi:bed-empty"></i>
+          <n-icon size="128" color="var(--text-tertiary)">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z"/>
+            </svg>
+          </n-icon>
         </template>
         还没有导入任何Token
         <a-button type="link" @click="openshowImportForm">打开Token管理</a-button>
@@ -280,6 +293,7 @@
 import ManualTokenForm from './manual.vue'
 import UrlTokenForm from './url.vue'
 import BinTokenForm from './bin.vue'
+import WxQrcodeForm from './wxqrcode.vue'
 
 import { useTokenStore, selectedTokenId } from '@/stores/tokenStore'
 import {
@@ -322,7 +336,7 @@ const importFormRef = ref(null)
 const urlFormRef = ref(null)
 const editFormRef = ref(null)
 const editingToken = ref(null)
-const importMethod = ref('manual')
+const importMethod = ref('bin')
 const refreshingTokens = ref(new Set())
 const connectingTokens = ref(new Set())
 const viewMode = ref('card')

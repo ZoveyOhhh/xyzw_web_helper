@@ -21,6 +21,7 @@ build/
 .env.development.local
 .env.test.local
 .env.production.local
+.env.oss
 
 # IDE
 # 同步vscode工作空间的配置
@@ -74,4 +75,7 @@ temp/
 .github
 *.bat
 *.exe
-node_modules/
+out/out.zip
+out/xyzw-token-manager.exe
+xyzw-token-manager.exe
+extScript/

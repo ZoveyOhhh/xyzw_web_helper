@@ -97,6 +97,7 @@ export default defineConfig(async () => {
     server: {
       port: 3000,
       open: true,
+      host: true,
       proxy: {
         // 微信登录接口代理
         '/api/weixin': {

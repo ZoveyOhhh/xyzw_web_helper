@@ -219,24 +219,23 @@
               </div>
             </template>
             <template #actions>
-              <n-button
-                type="primary"
-                size="large"
-                block
-                :loading="connectingTokens.has(token.id)"
-                @click="startTaskManagement(token)"
-              >
-                <template #icon>
-                  <n-icon>
-                    <Home />
-                  </n-icon>
-                </template>
-                开始任务管理
-              </n-button>
-              <n-button v-else type="primary" size="large" block :loading="connectingTokens.has(token.id)"
-                @click="startTaskManagement(token)">
-                开始链接
-              </n-button>
+              <template v-if="getTokenStyle(token.id) === 'success'">
+                <n-button type="primary" size="large" block :loading="connectingTokens.has(token.id)"
+                  @click="startTaskManagement(token)">
+                  <template #icon>
+                    <n-icon>
+                      <Home />
+                    </n-icon>
+                  </template>
+                  开始任务管理
+                </n-button>
+              </template>
+              <template v-else>
+                <n-button type="primary" size="large" block :loading="connectingTokens.has(token.id)"
+                  @click="startTaskManagement(token)">
+                  开始链接
+                </n-button>
+              </template>
             </template>
           </a-card>
         </div>

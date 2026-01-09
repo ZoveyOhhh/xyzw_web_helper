@@ -39,20 +39,16 @@
       </div>
     </div>
 
-    <!-- 角色选择器 -->
+    <!-- Token信息 -->
     <div class="role-selector-section">
       <div class="container">
         <div class="role-selector">
-          <span class="selector-label">选择角色：</span>
-          <n-select
-            v-model:value="selectedRoleId"
-            :options="roleOptions"
-            placeholder="请选择游戏角色"
-            style="min-width: 200px"
-            @update:value="onRoleChange"
-          />
+          <span class="selector-label">当前Token：</span>
+          <div class="token-info">
+            {{ selectedToken?.name || "未选择Token" }}
+          </div>
 
-          <div v-if="selectedRole" class="role-stats">
+          <div v-if="tasks.length > 0" class="role-stats">
             <div class="stat-item">
               <span class="stat-label">总任务：</span>
               <span class="stat-value">{{ taskStats.total }}</span>
@@ -150,37 +146,25 @@ import { useMessage, useDialog } from "naive-ui";
 import { useTokenStore } from "@/stores/tokenStore";
 import DailyTaskCard from "@/components/Daily/DailyTaskCard.vue";
 import { Refresh, ChevronDown, Search, Cube } from "@vicons/ionicons5";
-import { useGameRolesStore } from "@/stores/gameRoles";
-import { useLocalTokenStore } from "@/stores/localTokenManager";
-import { useAuthStore } from "@/stores/auth";
 
 const router = useRouter();
 const message = useMessage();
 const dialog = useDialog();
 const tokenStore = useTokenStore();
-const gameRolesStore = useGameRolesStore();
-const localTokenStore = useLocalTokenStore();
-const authStore = useAuthStore();
 
 // 响应式数据
 const isLoading = ref(false);
 const isRefreshing = ref(false);
-const selectedRoleId = ref(null);
 const currentFilter = ref("all");
 const searchKeyword = ref("");
 const tasks = ref([]);
 
 // 计算属性
-const selectedRole = computed(() => {
-  return gameRolesStore.gameRoles.find(
-    (role) => role.id === selectedRoleId.value,
-  );
-});
-
-const roleOptions = computed(() => {
-  return gameRolesStore.gameRoles.map((role) => ({
-    label: `${role.name} (${role.server})`,
-    value: role.id,
+const selectedToken = computed(() => tokenStore.selectedToken);
+const tokenOptions = computed(() => {
+  return tokenStore.gameTokens.map((token) => ({
+    label: token.name,
+    value: token.id,
   }));
 });
 
@@ -188,7 +172,6 @@ const taskStats = computed(() => {
   const total = tasks.value.length;
   const completed = tasks.value.filter((task) => task.completed).length;
   const percentage = total > 0 ? Math.round((completed / total) * 100) : 0;
-
   return { total, completed, percentage };
 });
 
@@ -236,88 +219,10 @@ const bulkActionOptions = [
   },
 ];
 
-// 等待WebSocket连接并加载阵容数据
-const loadTeamDataWithConnection = async (
-  tokenId,
-  maxRetries = 3,
-  retryDelay = 2000,
-) => {
-  // 降噪
-
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    try {
-      // 检查WebSocket连接状态
-      const wsStatus = tokenStore.getWebSocketStatus(tokenId);
-      // 降噪
-
-      if (wsStatus !== "connected") {
-        // 降噪
-
-        // 尝试建立WebSocket连接
-        const tokenData = tokenStore.gameTokens.find((t) => t.id === tokenId);
-        if (tokenData && tokenData.token) {
-          // 触发WebSocket连接
-          tokenStore.createWebSocketConnection(
-            tokenId,
-            tokenData.token,
-            tokenData.wsUrl,
-          );
-
-          // 等待连接建立
-          await new Promise((resolve) => setTimeout(resolve, retryDelay));
-
-          // 再次检查连接状态
-          const newStatus = tokenStore.getWebSocketStatus(tokenId);
-          if (newStatus !== "connected") {
-            if (attempt < maxRetries) {
-              // 降噪
-              continue;
-            } else {
-              throw new Error("WebSocket连接超时");
-            }
-          }
-        } else {
-          throw new Error("未找到有效的Token数据或WebSocket URL");
-        }
-      }
-
-      // WebSocket已连接，开始加载阵容数据
-      // 降噪
-      const result = await tokenStore.sendMessageWithPromise(
-        tokenId,
-        "presetteam_getinfo",
-        {},
-        8000,
-      );
-
-      if (result) {
-        // 更新到游戏数据缓存中
-        tokenStore.$patch((state) => {
-          state.gameData = { ...(state.gameData ?? {}), presetTeam: result };
-        });
-        // 降噪
-        message.success("阵容数据已更新");
-        return result;
-      }
-    } catch (error) {
-      console.error(`第${attempt}次尝试失败:`, error);
-
-      if (attempt < maxRetries) {
-        // 降噪
-        await new Promise((resolve) => setTimeout(resolve, retryDelay));
-      } else {
-        console.error("所有重试均失败，阵容数据加载失败");
-        message.warning(`阵容数据加载失败: ${error.message || "未知错误"}`);
-        return null;
-      }
-    }
-  }
-};
-
 // 方法
 const refreshTasks = async () => {
-  if (!selectedRoleId.value) {
-    message.warning("请先选择游戏角色");
+  if (!selectedToken.value) {
+    message.warning("请先选择Token");
     return;
   }
 
@@ -326,12 +231,12 @@ const refreshTasks = async () => {
     isLoading.value = true;
 
     // 使用本地模拟任务数据
-    const mockTasks = generateMockTasks(selectedRoleId.value);
+    const mockTasks = generateMockTasks(selectedToken.value.id, selectedToken.value.name);
     tasks.value = mockTasks;
 
     // 缓存到本地存储
     localStorage.setItem(
-      `dailyTasks_${selectedRoleId.value}`,
+      `dailyTasks_${selectedToken.value.id}`,
       JSON.stringify(mockTasks),
     );
 
@@ -346,13 +251,10 @@ const refreshTasks = async () => {
 };
 
 // 生成模拟任务数据
-const generateMockTasks = (roleId) => {
-  const role = gameRolesStore.gameRoles.find((r) => r.id === roleId);
-  const roleName = role?.name || "未知角色";
-
+const generateMockTasks = (tokenId, tokenName = "未知角色") => {
   return [
     {
-      id: `task_${roleId}_daily_signin`,
+      id: `task_${tokenId}_daily_signin`,
       title: "每日签到",
       subtitle: "登录游戏获取签到奖励",
       icon: "/icons/ta.png",
@@ -369,7 +271,7 @@ const generateMockTasks = (roleId) => {
       logs: [],
     },
     {
-      id: `task_${roleId}_daily_quest`,
+      id: `task_${tokenId}_daily_quest`,
       title: "完成日常任务",
       subtitle: "完成5个日常任务获得奖励",
       icon: "/icons/ta.png",
@@ -402,7 +304,7 @@ const generateMockTasks = (roleId) => {
       ],
     },
     {
-      id: `task_${roleId}_guild_contribution`,
+      id: `task_${tokenId}_guild_contribution`,
       title: "公会贡献",
       subtitle: "为公会贡献资源获得贡献点",
       icon: "/icons/ta.png",
@@ -425,17 +327,6 @@ const generateMockTasks = (roleId) => {
   ];
 };
 
-const onRoleChange = (roleId) => {
-  selectedRoleId.value = roleId;
-  gameRolesStore.selectRole(
-    gameRolesStore.gameRoles.find((role) => role.id === roleId),
-  );
-
-  if (roleId) {
-    refreshTasks();
-  }
-};
-
 const onFilterChange = (filter) => {
   currentFilter.value = filter;
 };
@@ -445,32 +336,21 @@ const onSearch = (keyword) => {
 };
 
 const executeTask = async (taskId) => {
-  if (!selectedRoleId.value) {
-    message.error("请先选择游戏角色");
+  if (!selectedToken.value) {
+    message.error("请先选择Token");
     return;
   }
 
   try {
     // 检查WebSocket连接状态
-    const wsStatus = localTokenStore.getWebSocketStatus(selectedRoleId.value);
+    const wsStatus = tokenStore.getWebSocketStatus(selectedToken.value.id);
     if (wsStatus !== "connected") {
-      // 尝试建立连接
-      const tokenData = localTokenStore.getGameToken(selectedRoleId.value);
-      if (tokenData) {
-        localTokenStore.createWebSocketConnection(
-          selectedRoleId.value,
-          tokenData.token,
-          tokenData.wsUrl,
-        );
-        // 等待一秒让连接建立
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-      } else {
-        throw new Error("未找到游戏token，请重新添加角色");
-      }
+      message.warning("WebSocket未连接，无法执行任务");
+      return;
     }
 
-    // 模拟通过WebSocket执行任务
-    // 降噪
+    // 执行任务
+    tokenStore.sendMessage(selectedToken.value.id, "task_claimdailyreward");
 
     // 更新本地任务状态
     const taskIndex = tasks.value.findIndex((task) => task.id === taskId);
@@ -494,7 +374,7 @@ const executeTask = async (taskId) => {
 
       // 保存到本地存储
       localStorage.setItem(
-        `dailyTasks_${selectedRoleId.value}`,
+        `dailyTasks_${selectedToken.value.id}`,
         JSON.stringify(tasks.value),
       );
     }
@@ -502,22 +382,7 @@ const executeTask = async (taskId) => {
     message.success("任务执行成功");
   } catch (error) {
     console.error("执行任务失败:", error);
-
-    // 添加错误日志
-    const taskIndex = tasks.value.findIndex((task) => task.id === taskId);
-    if (taskIndex !== -1) {
-      if (!tasks.value[taskIndex].logs) {
-        tasks.value[taskIndex].logs = [];
-      }
-      tasks.value[taskIndex].logs.push({
-        id: Date.now(),
-        timestamp: Date.now(),
-        type: "error",
-        message: `任务执行失败: ${error.message}`,
-      });
-    }
-
-    throw error;
+    message.error(`任务执行失败: ${error.message || "未知错误"}`);
   }
 };
 
@@ -526,6 +391,13 @@ const toggleTaskStatus = (taskId) => {
   if (taskIndex !== -1) {
     tasks.value[taskIndex].completed = !tasks.value[taskIndex].completed;
     message.info("任务状态已更新");
+    // 保存到本地存储
+    if (selectedToken.value) {
+      localStorage.setItem(
+        `dailyTasks_${selectedToken.value.id}`,
+        JSON.stringify(tasks.value),
+      );
+    }
   }
 };
 
@@ -533,6 +405,13 @@ const updateTask = (updatedTask) => {
   const taskIndex = tasks.value.findIndex((task) => task.id === updatedTask.id);
   if (taskIndex !== -1) {
     tasks.value[taskIndex] = updatedTask;
+    // 保存到本地存储
+    if (selectedToken.value) {
+      localStorage.setItem(
+        `dailyTasks_${selectedToken.value.id}`,
+        JSON.stringify(tasks.value),
+      );
+    }
   }
 };
 
@@ -604,6 +483,13 @@ const markAllCompleted = () => {
         task.completedAt = new Date().toISOString();
       });
       message.success("所有任务已标记为完成");
+      // 保存到本地存储
+      if (selectedToken.value) {
+        localStorage.setItem(
+          `dailyTasks_${selectedToken.value.id}`,
+          JSON.stringify(tasks.value),
+        );
+      }
     },
   });
 };
@@ -620,34 +506,23 @@ const resetAllTasks = () => {
         task.completedAt = null;
       });
       message.success("所有任务状态已重置");
+      // 保存到本地存储
+      if (selectedToken.value) {
+        localStorage.setItem(
+          `dailyTasks_${selectedToken.value.id}`,
+          JSON.stringify(tasks.value),
+        );
+      }
     },
   });
 };
 
 // 生命周期
 onMounted(async () => {
-  // 确保用户已登录
-  if (!authStore.isAuthenticated) {
-    router.push("/login");
-    return;
-  }
-
-  // 初始化游戏角色数据
-  if (gameRolesStore.gameRoles.length === 0) {
-    await gameRolesStore.fetchGameRoles();
-  }
-
-  // 页面进入时手动调用阵容加载接口，确保WebSocket连接后再调用
-  if (tokenStore.selectedToken) {
-    await loadTeamDataWithConnection(tokenStore.selectedToken.id);
-  }
-
-  // 设置默认选中的角色
-  if (gameRolesStore.selectedRole) {
-    selectedRoleId.value = gameRolesStore.selectedRole.id;
+  if (selectedToken.value) {
     // 尝试从本地存储加载任务数据
     const savedTasks = localStorage.getItem(
-      `dailyTasks_${selectedRoleId.value}`,
+      `dailyTasks_${selectedToken.value.id}`,
     );
     if (savedTasks) {
       try {
@@ -659,20 +534,33 @@ onMounted(async () => {
     } else {
       refreshTasks();
     }
-  } else if (gameRolesStore.gameRoles.length > 0) {
-    selectedRoleId.value = gameRolesStore.gameRoles[0].id;
-    onRoleChange(selectedRoleId.value);
   }
 });
 
-// 监听选中角色变化
+// 监听选中token变化
 watch(
-  () => gameRolesStore.selectedRole,
-  (newRole) => {
-    if (newRole && newRole.id !== selectedRoleId.value) {
-      selectedRoleId.value = newRole.id;
+  () => tokenStore.selectedToken,
+  (newToken) => {
+    if (newToken) {
+      // 尝试从本地存储加载任务数据
+      const savedTasks = localStorage.getItem(
+        `dailyTasks_${newToken.id}`,
+      );
+      if (savedTasks) {
+        try {
+          tasks.value = JSON.parse(savedTasks);
+        } catch (error) {
+          console.error("解析任务数据失败:", error);
+          refreshTasks();
+        }
+      } else {
+        refreshTasks();
+      }
+    } else {
+      tasks.value = [];
     }
   },
+  { immediate: true }
 );
 </script>
 
@@ -737,6 +625,17 @@ watch(
   align-items: center;
   gap: var(--spacing-md);
   flex-wrap: wrap;
+}
+
+.token-info {
+  font-weight: var(--font-weight-medium);
+  color: var(--text-primary);
+  background: var(--bg-primary);
+  padding: var(--spacing-sm) var(--spacing-md);
+  border-radius: var(--border-radius-medium);
+  border: 1px solid var(--border-light);
+  min-width: 150px;
+  text-align: center;
 }
 
 .selector-label {

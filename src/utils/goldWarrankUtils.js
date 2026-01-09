@@ -3,7 +3,7 @@
  */
 
 
-import * as XLSX from 'xlsx';
+import * as XLSX from 'xlsx-js-style';
 
 /**
  * 获取今天日期

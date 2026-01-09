@@ -172,7 +172,7 @@
     <GoldClubList v-if="activeSection === 'goldclubrank'" />
 
     <!-- 切磋（提取组件） -->
-    <fightPvp v-if="activeSection === 'fightPvp'" />
+    <FightPvp v-if="activeSection === 'fightPvp'" />
   </div>
 </template>
 
@@ -205,6 +205,9 @@ import RefineHelperCard from "./cards/RefineHelperCard.vue";
 import TowerStatus from "./Tower/TowerStatus.vue";
 import WeirdTowerStatus from "./Tower/WeirdTowerStatus.vue";
 import BossTower from "./Tower/BossTower.vue";
+import TeamFormation from "./Team/TeamFormation.vue";
+import DailyTaskStatus from "./Daily/DailyTaskStatus.vue";
+import IdentityCard from "./Common/IdentityCard.vue";
 const tokenStore = useTokenStore();
 const message = useMessage();
 

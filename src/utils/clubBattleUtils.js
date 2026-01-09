@@ -1,3 +1,5 @@
+import * as XLSX from "xlsx-js-style";
+
 /**
  * 俱乐部战斗工具函数
  */
@@ -7,7 +9,6 @@
  * 如果今天是周六，返回今天的日期；否则返回上周六的日期
  * @returns {string} 格式化的日期字符串 YYYY/MM/DD
  */
-import * as XLSX from "xlsx";
 
 export function getLastSaturday() {
   const today = new Date();

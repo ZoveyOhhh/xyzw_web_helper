@@ -1,0 +1,22 @@
+{
+  "name": "xyzw-token-manager",
+  "main": "index.html",
+  "compatibility_date": "2026-01-09",
+  "workers_dev": true,
+  "pages_build_output_dir": "dist",
+  "build": {
+    "command": "npm run build",
+    "cwd": ".",
+    "publish": "dist",
+    "watch": {
+      "dir": ".",
+      "ignore": [".git", "node_modules"]
+    }
+  },
+  "routes": [
+    {
+      "pattern": ".*",
+      "destination": "/index.html"
+    }
+  ]
+}

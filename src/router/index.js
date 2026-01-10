@@ -140,8 +140,8 @@ const router = createRouter({
   },
 });
 
-// 热更新路由
-autoRoutes.handleHotUpdate?.(router);
+// 热更新路由 - 注释掉，因为handleHotUpdate在当前版本不再导出
+// autoRoutes.handleHotUpdate?.(router);
 
 // 导航守卫
 router.beforeEach((to, from, next) => {

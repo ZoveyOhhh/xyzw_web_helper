@@ -9,6 +9,7 @@
     "testd": "node ./test/token.js",
     "dev": "vite",
     "build": "vite build",
+    "deploy": "pnpm run build && wrangler pages deploy",
     "preview": "vite preview",
     "lint": "eslint src --ext .vue,.js,.ts --fix",
     "format": "prettier --write \"src/**/*.{js,vue,ts,css,scss}\""
@@ -46,7 +47,8 @@
     "unplugin-auto-import": "^19.3.0",
     "unplugin-vue-components": "^28.4.1",
     "unplugin-vue-router": "^0.8.8",
-    "vite": "^5.4.11"
+    "vite": "^5.4.11",
+    "wrangler": "^4.58.0"
   },
   "keywords": [
     "vue",

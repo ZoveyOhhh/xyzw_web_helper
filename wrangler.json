@@ -1,17 +1,5 @@
 {
   "name": "xyzw-token-manager",
-  "compatibility_date": "2026-01-09",
-  "pages": {
-    "build_command": "npm run build",
-    "build_output_directory": "dist",
-    "dev": {
-      "command": "npm run dev"
-    }
-  },
-  "routes": [
-    {
-      "pattern": ".*",
-      "destination": "/index.html"
-    }
-  ]
+  "pages_build_output_dir": "./dist",
+  "compatibility_date": "2026-01-10"
 }

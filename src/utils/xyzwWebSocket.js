@@ -343,6 +343,15 @@ export class XyzwWebSocketClient {
       new CommandRegistry(this.utils, this.enc),
     );
 
+    // 请求速率限制配置
+    this.rateLimit = {
+      maxRequestsPerMinute: 120, // 每分钟最大请求数，从90调整到120
+      requestsSent: 0,           // 当前分钟发送的请求数
+      resetTime: Date.now() + 60000, // 下一次重置时间（1分钟后）
+      minInterval: 500,          // 两个请求之间的最小间隔，从700ms调整到500ms
+      lastRequestTime: 0         // 上一次发送请求的时间
+    };
+
     // WebSocket客户端初始化
 
     // 状态回调
@@ -791,6 +800,11 @@ export class XyzwWebSocketClient {
       if (!this.sendQueue.length) return;
       if (!this.connected || this.socket?.readyState !== WebSocket.OPEN) return;
 
+      // 检查是否可以发送请求
+      if (!this._canSendRequest()) {
+        return;
+      }
+
       const task = this.sendQueue.shift();
       if (!task) return;
 
@@ -820,6 +834,9 @@ export class XyzwWebSocketClient {
         // 编码并发送
         const bin = this.registry.encodePacket(raw);
         this.socket?.send(bin);
+
+        // 更新请求速率限制计数器
+        this._updateRateLimit();
 
         if (this.showMsg || task.cmd === "heart_beat") {
           wsLogger.wsMessage("local", task.cmd, false);
@@ -860,7 +877,37 @@ export class XyzwWebSocketClient {
       } catch (error) {
         wsLogger.error(`发送消息失败: ${task.cmd}`, error);
       }
-    }, 50);
+    }, 100);
+  }
+
+  /** 检查是否可以发送请求 */
+  _canSendRequest() {
+    const now = Date.now();
+    
+    // 重置每分钟的请求计数
+    if (now >= this.rateLimit.resetTime) {
+      this.rateLimit.requestsSent = 0;
+      this.rateLimit.resetTime = now + 60000;
+    }
+    
+    // 检查请求数量限制
+    if (this.rateLimit.requestsSent >= this.rateLimit.maxRequestsPerMinute) {
+      return false;
+    }
+    
+    // 检查请求间隔限制
+    const timeSinceLastRequest = now - this.rateLimit.lastRequestTime;
+    if (timeSinceLastRequest < this.rateLimit.minInterval) {
+      return false;
+    }
+    
+    return true;
+  }
+
+  /** 更新请求速率限制 */
+  _updateRateLimit() {
+    this.rateLimit.requestsSent++;
+    this.rateLimit.lastRequestTime = Date.now();
   }
 
   /** 处理 Promise 响应 */

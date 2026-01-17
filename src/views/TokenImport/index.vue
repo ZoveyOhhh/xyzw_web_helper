@@ -29,6 +29,7 @@
             <n-radio-button value="manual"> 手动输入 </n-radio-button>
             <n-radio-button value="url"> URL获取 </n-radio-button>
             <n-radio-button value="bin"> BIN获取 </n-radio-button>
+            <n-radio-button value="wxqrcode"> 微信扫码 </n-radio-button>
           </n-radio-group>
         </div>
         <div class="card-body">
@@ -38,6 +39,8 @@
             v-if="importMethod === 'url'" />
           <bin-token-form @cancel="() => (showImportForm = false)" @ok="() => (showImportForm = false)"
             v-if="importMethod === 'bin'" />
+          <wx-qrcode-form @cancel="() => (showImportForm = false)" @ok="() => (showImportForm = false)"
+            v-if="importMethod === 'wxqrcode'" />
         </div>
       </a-modal>
 
@@ -391,6 +394,7 @@
 import ManualTokenForm from "./manual.vue";
 import UrlTokenForm from "./url.vue";
 import BinTokenForm from "./bin.vue";
+import WxQrcodeForm from "./wxqrcode.vue";
 
 import { useTokenStore, selectedTokenId } from "@/stores/tokenStore";
 import {

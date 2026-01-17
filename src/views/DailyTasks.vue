@@ -150,17 +150,11 @@ import { useMessage, useDialog } from "naive-ui";
 import { useTokenStore } from "@/stores/tokenStore";
 import DailyTaskCard from "@/components/Daily/DailyTaskCard.vue";
 import { Refresh, ChevronDown, Search, Cube } from "@vicons/ionicons5";
-import { useGameRolesStore } from "@/stores/gameRoles";
-import { useLocalTokenStore } from "@/stores/localTokenManager";
-import { useAuthStore } from "@/stores/auth";
 
 const router = useRouter();
 const message = useMessage();
 const dialog = useDialog();
 const tokenStore = useTokenStore();
-const gameRolesStore = useGameRolesStore();
-const localTokenStore = useLocalTokenStore();
-const authStore = useAuthStore();
 
 // 响应式数据
 const isLoading = ref(false);
@@ -170,16 +164,16 @@ const currentFilter = ref("all");
 const searchKeyword = ref("");
 const tasks = ref([]);
 
-// 计算属性
+// 计算属性 - 从tokenStore获取游戏角色（Token）列表
 const selectedRole = computed(() => {
-  return gameRolesStore.gameRoles.find(
+  return tokenStore.gameTokens.find(
     (role) => role.id === selectedRoleId.value,
   );
 });
 
 const roleOptions = computed(() => {
-  return gameRolesStore.gameRoles.map((role) => ({
-    label: `${role.name} (${role.server})`,
+  return tokenStore.gameTokens.map((role) => ({
+    label: `${role.name}`,
     value: role.id,
   }));
 });
@@ -347,7 +341,7 @@ const refreshTasks = async () => {
 
 // 生成模拟任务数据
 const generateMockTasks = (roleId) => {
-  const role = gameRolesStore.gameRoles.find((r) => r.id === roleId);
+  const role = tokenStore.gameTokens.find((r) => r.id === roleId);
   const roleName = role?.name || "未知角色";
 
   return [
@@ -427,10 +421,7 @@ const generateMockTasks = (roleId) => {
 
 const onRoleChange = (roleId) => {
   selectedRoleId.value = roleId;
-  gameRolesStore.selectRole(
-    gameRolesStore.gameRoles.find((role) => role.id === roleId),
-  );
-
+  
   if (roleId) {
     refreshTasks();
   }
@@ -452,12 +443,12 @@ const executeTask = async (taskId) => {
 
   try {
     // 检查WebSocket连接状态
-    const wsStatus = localTokenStore.getWebSocketStatus(selectedRoleId.value);
+    const wsStatus = tokenStore.getWebSocketStatus(selectedRoleId.value);
     if (wsStatus !== "connected") {
       // 尝试建立连接
-      const tokenData = localTokenStore.getGameToken(selectedRoleId.value);
+      const tokenData = tokenStore.gameTokens.find((t) => t.id === selectedRoleId.value);
       if (tokenData) {
-        localTokenStore.createWebSocketConnection(
+        tokenStore.createWebSocketConnection(
           selectedRoleId.value,
           tokenData.token,
           tokenData.wsUrl,
@@ -626,25 +617,14 @@ const resetAllTasks = () => {
 
 // 生命周期
 onMounted(async () => {
-  // 确保用户已登录
-  if (!authStore.isAuthenticated) {
-    router.push("/login");
-    return;
-  }
-
-  // 初始化游戏角色数据
-  if (gameRolesStore.gameRoles.length === 0) {
-    await gameRolesStore.fetchGameRoles();
-  }
-
   // 页面进入时手动调用阵容加载接口，确保WebSocket连接后再调用
   if (tokenStore.selectedToken) {
     await loadTeamDataWithConnection(tokenStore.selectedToken.id);
   }
 
   // 设置默认选中的角色
-  if (gameRolesStore.selectedRole) {
-    selectedRoleId.value = gameRolesStore.selectedRole.id;
+  if (tokenStore.gameTokens.length > 0) {
+    selectedRoleId.value = tokenStore.gameTokens[0].id;
     // 尝试从本地存储加载任务数据
     const savedTasks = localStorage.getItem(
       `dailyTasks_${selectedRoleId.value}`,
@@ -659,18 +639,15 @@ onMounted(async () => {
     } else {
       refreshTasks();
     }
-  } else if (gameRolesStore.gameRoles.length > 0) {
-    selectedRoleId.value = gameRolesStore.gameRoles[0].id;
-    onRoleChange(selectedRoleId.value);
   }
 });
 
-// 监听选中角色变化
+// 监听选中角色变化（使用 tokenStore）
 watch(
-  () => gameRolesStore.selectedRole,
-  (newRole) => {
-    if (newRole && newRole.id !== selectedRoleId.value) {
-      selectedRoleId.value = newRole.id;
+  () => tokenStore.selectedToken,
+  (newToken) => {
+    if (newToken && newToken.id !== selectedRoleId.value) {
+      selectedRoleId.value = newToken.id;
     }
   },
 );
